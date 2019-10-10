@@ -1,0 +1,188 @@
+---
+title: "Ridge Regression  & Lasso"
+author: "Weifu Shi"
+date: "10/8/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+
+library(magrittr)
+library(ggthemes)
+library(glmnet)
+theme_set(theme_bw())
+```
+
+```{r}
+library(dplyr)
+airbnb <- readr::read_csv('BA 810 /airbnb-dataset/train.csv')
+summary(airbnb)
+
+airbnb <- na.omit(airbnb)
+cols <- sapply(airbnb, is.logical)
+airbnb[,cols] <- lapply(airbnb[,cols], as.numeric)
+set.seed(1234)
+airbnb$train <- sample(c(0, 1), nrow(airbnb), replace = TRUE, prob = c(.3, .7))
+airbnb_test <- airbnb %>% filter(train == 0)
+airbnb_train <- airbnb %>% filter(train == 1)
+```
+
+
+```{r}
+
+## x_train & y_train 
+x_train<-model.matrix( ~ -1 + accommodates + bathrooms + cleaning_fee +
+                  host_has_profile_pic + host_identity_verified +
+                  instant_bookable + number_of_reviews + review_scores_rating +
+                  bedrooms + beds, data=airbnb_train)
+
+y_train<-airbnb_train$log_price
+
+
+## x_test & y_test 
+x_test<-model.matrix( ~ -1 + accommodates + bathrooms + cleaning_fee +
+                  host_has_profile_pic + host_identity_verified +
+                  instant_bookable + number_of_reviews + review_scores_rating +
+                  bedrooms + beds, data=airbnb_test)
+y_test<-airbnb_test$log_price
+
+
+
+### generate predict functions 
+cv.fit<-cv.glmnet(x_train,y_train,alpha=1,nfold=10)
+cv.fit
+
+
+## 
+
+
+plot(cv.fit)
+
+coef(cv.fit,s=0.0006858939)
+coef(cv.fit,s=0)
+
+
+pos<-which(coef(cv.fit)!=0)
+pos
+
+
+feature_selected<-names(coef(cv.fit)[pos,])
+feature_list<-feature_selected[-1]
+feature_list1<-feature_list[1:(length(feature_list)-1)]
+feature_list2<-feature_list[length(feature_list)]
+features<-paste(paste0(feature_list1,collapse = ", "), "and", feature_list2)
+features
+
+coef(cv.fit)
+```
+
+```{r}
+#Lasso     cv.fit=est     Calculate the y_train hat and y_test_hat 
+
+# Train 
+y_train_hat <- predict(cv.fit, x_train, s = cv.fit$lambda)
+y_train_hat
+
+
+# Test 
+y_test_hat <- predict(cv.fit, x_test, s = cv.fit$lambda)
+y_test_hat
+
+
+```
+```{r}
+# Calculation of MSE for TRAIN & TEST DATA.   
+
+#(1)Calculation of MSE_Train
+
+sdr_train <- (y_train-y_train_hat)^2
+sdr_train
+class(sdr_train)
+
+mse_train <- apply(sdr_train,2,FUN=mean)
+mse_train
+
+lambda_min_mse_train <- mse_train[which.min(mse_train)]
+lambda_min_mse_train
+
+
+## Calculation of MSE_Test
+sdr_test <- (y_test-y_test_hat)^2
+
+
+mse_test <- apply(sdr_test,2,FUN=mean)
+mse_test
+
+lambda_min_mse_test <- mse_test[which.min(mse_test)]
+lambda_min_mse_test
+
+
+```
+
+```{r}
+x_train<-model.matrix( ~ -1 + accommodates + bathrooms + cleaning_fee +
+                  host_has_profile_pic + host_identity_verified +
+                  instant_bookable + number_of_reviews + review_scores_rating +
+                  bedrooms + beds, data=airbnb_train)
+y_train<-airbnb_train$log_price
+
+
+x_test <- model.matrix( ~ -1 + accommodates + bathrooms + cleaning_fee +
+                  host_has_profile_pic + host_identity_verified +
+                  instant_bookable + number_of_reviews + review_scores_rating +
+                  bedrooms + beds, data=airbnb_test)
+y_test <- airbnb_test$log_price
+
+```
+
+
+```{r}
+
+##Q6  Aggregate all MSEs in a single dataset 5 points 
+
+dd_mse <- tibble(
+  lambda = cv.fit$lambda,
+  mse = mse_train,
+  dataset = "Train"
+)
+
+dd_mse
+
+##(2) rbind rowcombine Test Dataset
+dd_mse <- rbind(dd_mse, tibble(
+  lambda = cv.fit$lambda,
+  mse = mse_test,
+  dataset = "Test"
+))
+
+dd_mse
+
+###Q7 Plot the MSEs (5 points)
+
+k <- dd_mse %>% group_by(dataset) %>% summarize(mse=min(mse)) %>% left_join(dd_mse) %>% distinct()
+k
+
+dd_mse %>% ggplot(aes(x=lambda,y=mse,color=dataset))+
+  geom_line()+scale_x_reverse()+
+  geom_point(data=k,aes(x=lambda,y=mse),size=6)
+
+
+```
+
+
+
+
+```{r}
+library(stringr)
+?str_detect()
+airbnb$includeTVornot <- str_detect(airbnb$amenities,"TV")
+airbnb %>% select(includeTVornot,everything())
+                  
+?mutate
+123
+```
+
