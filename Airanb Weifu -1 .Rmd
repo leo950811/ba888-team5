@@ -14,7 +14,7 @@ library(ggplot2)
 library(magrittr)
 library(ggthemes)
 library(glmnet)
-theme_set(theme_bw())
+theme_set(theme_bw()) 
 ```
 
 ```{r}
