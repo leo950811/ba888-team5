@@ -43,10 +43,6 @@ airbnb_train <- newairbnb %>% filter(train == 1)
 ```
 
 
-```{r}
-
-```
-
 
 # Initial modeling
 
@@ -142,10 +138,10 @@ rpart.plot(fit.tree)
 
 ##random forest
 ```{r}
-formula = as.formula(log_price ~ -1 + accommodates + bathrooms + cleaning_fee +
-                  host_has_profile_pic + host_identity_verified +
-                  instant_bookable + number_of_reviews + review_scores_rating +
-                  bedrooms + beds,airbnb_train)
+amenity = colnames(amenities)
+
+formula = as.formula(log_price ~ -1 + tv+wifi+ac+heat+kitchen+pool+pet+parking+garden+wholedaycheckin + accommodates + bathrooms + cleaning_fee + host_has_profile_pic + host_identity_verified +instant_bookable + number_of_reviews + review_scores_rating +bedrooms + beds,airbnb_train)
+
 set.seed(6)
 mod_rf <- randomForest(formula,airbnb_train,ntree=500)
 
