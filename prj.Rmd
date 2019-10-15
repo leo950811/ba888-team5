@@ -187,23 +187,23 @@ mse_rf_test
 
 ##gbm
 ```{r}
-f1 <- as.formula( log_price~ accommodates + bathrooms + cleaning_fee +
-                   host_has_profile_pic + host_identity_verified +
-                   instant_bookable + number_of_reviews + review_scores_rating +
-                   bedrooms + beds)
+f1 <- as.formula(log_price ~ -1 + tv+wifi+ac+heat+kitchen+pool+pet+parking+garden+wholedaycheckin + accommodates + bathrooms + cleaning_fee + host_has_profile_pic + host_identity_verified +instant_bookable + number_of_reviews + review_scores_rating +bedrooms + beds,airbnb_train)
 
 fit_btree <- gbm(f1,
                  data = airbnb_train,
                  distribution = "gaussian",
-                 n.trees = 100,
+                 n.trees = 600,
                  interaction.depth = 2,
-                 shrinkage = 0.001)
+                 shrinkage = 1)
 
 relative.influence(fit_btree)
 
-yhat_btree <- predict(fit_btree, airbnb_train, n.trees = 100)
-mse_btree <- mean((yhat_btree - airbnb_train$log_price) ^ 2)
-print(mse_btree)
+yhat_btree_train <- predict(fit_btree, airbnb_train, n.trees = 600)
+mse_btree_train <- mean((yhat_btree_train - airbnb_train$log_price) ^ 2)
+print(mse_btree_train)
 
+yhat_btree_test <- predict(fit_btree, airbnb_test, n.trees = 600)
+mse_btree_test <- mean((yhat_btree_test - airbnb_test$log_price) ^ 2)
+print(mse_btree_test)
 ```
 
