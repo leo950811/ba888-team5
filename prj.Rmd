@@ -63,7 +63,11 @@ f2 <- as.formula(log_price ~ accommodates + bathrooms + cleaning_fee +
                   bedrooms + beds + beds * bedrooms + accommodates * beds)
 y.train <- airbnb_train$log_price
 y.test <- airbnb_test$log_price
+
+#linear regression
 fit.lm1 <- lm(f1, airbnb_train)
+
+#computate MSEs on train & test data
 yhat.train.lm1 <- predict(fit.lm1)
 mse.train.lm1 <- mean((y.train - yhat.train.lm1)^2)
 yhat.test.lm1 <- predict(fit.lm1, airbnb_test)
@@ -75,6 +79,23 @@ yhat.train.lm2 <- predict(fit.lm2)
 mse.train.lm2 <- mean((y.train - yhat.train.lm2)^2)
 yhat.test.lm2 <- predict(fit.lm2, airbnb_test)
 mse.test.lm2 <- mean((y.test - yhat.test.lm2)^2)
+```
+Through applying simple linear regression with and without interaction terms on train data, we get different MSEs. Adding interaction terms, we have lower MSE on training set, which is 0.2455973.
+
+```{r}
+# forward & backward selection
+library(caret)
+step.modelB <- train(f1, data = airbnb_train,
+                    method = "leapBackward",  
+                    tuneGrid = data.frame(nvmax = 1:20)
+                    )
+
+step.modelF <- train(f1, data = airbnb_train,
+                    method = "leapForward", 
+                    tuneGrid = data.frame(nvmax = 1:20)
+                    )
+summary(step.modelB$finalModel)
+summary(step.modelF$finalModel)
 ```
 
 
