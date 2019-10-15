@@ -174,7 +174,7 @@ formula = as.formula(log_price ~ -1 + tv+wifi+ac+heat+kitchen+pool+pet+parking+g
 set.seed(6)
 mod_rf <- randomForest(formula,airbnb_train,ntree=500)
 
-varImpPlot(mod_rf)
+varImpPlot(mod_rf) 
 
 frpre_train = predict(mod_rf,airbnb_train)
 mse_rf_train = mean((frpre_train - airbnb_train$log_price)^2)
