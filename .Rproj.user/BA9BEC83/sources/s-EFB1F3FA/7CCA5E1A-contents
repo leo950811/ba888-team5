@@ -15,7 +15,11 @@ library(randomForest)
 library(magrittr)
 library(ggthemes)
 library(glmnet)
+<<<<<<< HEAD
 library(gbm)
+=======
+library(rpart.plot)
+>>>>>>> df9244e831c7068dfda4be426974b379e52b3c09
 theme_set(theme_bw())
 
 
@@ -146,8 +150,9 @@ coef(cv.fit)
 
 
 ##tree
+
 ```{r}
-f1 <- as.formula(log_price ~ accommodates + cleaning_fee + bedrooms + beds + bathrooms + review_scores_rating)
+f1 <- as.formula(log_price ~ tv+wifi+ac+heat+kitchen+pool+pet+parking+garden+wholedaycheckin + accommodates + cleaning_fee + host_has_profile_pic + host_identity_verified +instant_bookable + number_of_reviews +bedrooms)
 fit.tree <- rpart(f1,
                   airbnb,
                   control = rpart.control(cp = 0.001))
@@ -156,6 +161,7 @@ plot(fit.tree, compress=TRUE)
 text(fit.tree, use.n=TRUE)
 rpart.plot(fit.tree)
 ```
+
 
 
 
@@ -188,7 +194,7 @@ fit_btree <- gbm(f1,
                  distribution = "gaussian",
                  n.trees = 600,
                  interaction.depth = 2,
-                 shrinkage = 0.001)
+                 shrinkage = 1)
 
 relative.influence(fit_btree)
 
@@ -199,6 +205,5 @@ print(mse_btree_train)
 yhat_btree_test <- predict(fit_btree, airbnb_test, n.trees = 600)
 mse_btree_test <- mean((yhat_btree_test - airbnb_test$log_price) ^ 2)
 print(mse_btree_test)
-1
 ```
 
