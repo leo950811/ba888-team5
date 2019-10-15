@@ -199,5 +199,6 @@ print(mse_btree_train)
 yhat_btree_test <- predict(fit_btree, airbnb_test, n.trees = 600)
 mse_btree_test <- mean((yhat_btree_test - airbnb_test$log_price) ^ 2)
 print(mse_btree_test)
+1
 ```
 
