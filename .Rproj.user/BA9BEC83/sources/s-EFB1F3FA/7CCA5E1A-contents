@@ -1,0 +1,217 @@
+---
+title: "prj"
+author: "Sizhe Fan"
+date: "10/8/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+install.packages(c("randomForest", "gbm"))
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(randomForest)
+library(magrittr)
+library(ggthemes)
+library(glmnet)
+<<<<<<< HEAD
+library(gbm)
+=======
+library(rpart.plot)
+<<<<<<< HEAD:.Rproj.user/BA9BEC83/sources/s-EFB1F3FA/7CCA5E1A-contents
+>>>>>>> df9244e831c7068dfda4be426974b379e52b3c09
+=======
+library(caret)
+>>>>>>> 2852cbdc52d9efe4e9a4d6e284b17329c6688acb:prj.Rmd
+theme_set(theme_bw())
+
+
+airbnb <- readr::read_csv('train.csv')
+airbnb <- na.omit(airbnb)
+tv = str_detect(airbnb$amenities,"TV")
+wifi = str_detect(airbnb$amenities,"Wireless Internet")
+ac = str_detect(airbnb$amenities,"Air conditioning")
+heat = str_detect(airbnb$amenities,"Heating")
+kitchen = str_detect(airbnb$amenities,"Kitchen")
+pool = str_detect(airbnb$amenities,"Pool")
+pet = str_detect(airbnb$amenities,"Pets live on this property")
+parking = str_detect(airbnb$amenities,"Free parking on premises")
+garden = str_detect(airbnb$amenities,"Garden or backyard")
+wholedaycheckin = str_detect(airbnb$amenities,"24-hour check-in")
+
+
+amenities = cbind(tv,wifi,ac,heat,kitchen,pool,pet,parking,garden,wholedaycheckin)
+newairbnb = cbind(airbnb,amenities)
+
+cols <- sapply(newairbnb, is.logical)
+newairbnb[,cols] <- lapply(newairbnb[,cols], as.numeric)
+set.seed(1234)
+newairbnb$train <- sample(c(0, 1), nrow(newairbnb), replace = TRUE, prob = c(.3, .7))
+airbnb_test <- newairbnb %>% filter(train == 0)
+airbnb_train <- newairbnb %>% filter(train == 1)
+```
+
+
+
+# Initial modeling
+
+##OLS
+
+```{r}
+airbnb_train %>% ggplot(aes(x = bedrooms, y = beds)) + geom_point() +
+ geom_smooth()
+airbnb_train %>% ggplot(aes(x = accommodates, y = beds)) +
+ geom_point() + geom_smooth()
+f1 <- as.formula(log_price ~ accommodates + bathrooms + cleaning_fee +
+                  host_has_profile_pic + host_identity_verified +
+                  instant_bookable + number_of_reviews + review_scores_rating +
+                  bedrooms + beds + tv + wifi +
+                   ac + heat + kitchen + pool + pet + parking + 
+                   garden + wholedaycheckin)
+f2 <- as.formula(log_price ~ accommodates + bathrooms + cleaning_fee +
+                  host_has_profile_pic + host_identity_verified +
+                  instant_bookable + number_of_reviews + review_scores_rating +
+                  bedrooms + beds + tv + wifi +
+                   ac + heat + kitchen + pool + pet + parking + 
+                   garden + wholedaycheckin + beds * bedrooms + accommodates * beds)
+y.train <- airbnb_train$log_price
+y.test <- airbnb_test$log_price
+
+#linear regression
+fit.lm1 <- lm(f1, airbnb_train)
+
+#computate MSEs on train & test data
+yhat.train.lm1 <- predict(fit.lm1)
+mse.train.lm1 <- mean((y.train - yhat.train.lm1)^2)
+yhat.test.lm1 <- predict(fit.lm1, airbnb_test)
+mse.test.lm1 <- mean((y.test - yhat.test.lm1)^2)
+
+#lower mse so adding interaction is necessary
+fit.lm2 <- lm(f2, airbnb_train)
+yhat.train.lm2 <- predict(fit.lm2)
+mse.train.lm2 <- mean((y.train - yhat.train.lm2)^2)
+yhat.test.lm2 <- predict(fit.lm2, airbnb_test)
+mse.test.lm2 <- mean((y.test - yhat.test.lm2)^2)
+```
+Through applying simple linear regression with and without interaction terms on train data, we get different MSEs. Adding interaction terms, we have lower MSE on training set, which is 0.2455973.
+
+```{r}
+# forward & backward selection
+
+step.modelB <- train(f1, data = airbnb_train,
+                    method = "leapBackward",  
+                    tuneGrid = data.frame(nvmax = 1:20)
+                    )
+
+step.modelF <- train(f1, data = airbnb_train,
+                    method = "leapForward", 
+                    tuneGrid = data.frame(nvmax = 1:20)
+                    )
+summary(step.modelB$finalModel)
+summary(step.modelF$finalModel)
+```
+The train MSE from forward selection is 0.2555381, and from backward is 0.2548477.
+
+
+##lasso
+```{r}
+
+## x_train & y_train 
+x_train<-model.matrix( ~ -1 + accommodates + bathrooms + cleaning_fee +
+                  host_has_profile_pic + host_identity_verified +
+                  instant_bookable + number_of_reviews + review_scores_rating +
+                  bedrooms + beds, data=airbnb_train)
+
+y_train<-airbnb_train$log_price
+
+
+## x_test & y_test 
+x_test<-model.matrix( ~ -1 + accommodates + bathrooms + cleaning_fee +
+                  host_has_profile_pic + host_identity_verified +
+                  instant_bookable + number_of_reviews + review_scores_rating +
+                  bedrooms + beds, data=airbnb_test)
+y_test<-airbnb_test$log_price
+
+### generate predict functions 
+cv.fit<-cv.glmnet(x_train,y_train,alpha=1,nfold=10)
+cv.fit$lambda.min
+
+plot(cv.fit)
+
+coef(cv.fit,s=0.000624961)
+coef(cv.fit,s=0.0006858939)
+coef(cv.fit,s=0)
+
+pos<-which(coef(cv.fit)!=0)
+pos
+
+feature_selected<-names(coef(cv.fit)[pos,])
+feature_list<-feature_selected[-1]
+feature_list1<-feature_list[1:(length(feature_list)-1)]
+feature_list2<-feature_list[length(feature_list)]
+features<-paste(paste0(feature_list1,collapse = ", "), "and", feature_list2)
+features
+
+coef(cv.fit)
+```
+
+
+##tree
+
+```{r}
+f1 <- as.formula(log_price ~ tv+wifi+ac+heat+kitchen+pool+pet+parking+garden+wholedaycheckin + accommodates + cleaning_fee + host_has_profile_pic + host_identity_verified +instant_bookable + number_of_reviews +bedrooms)
+fit.tree <- rpart(f1,
+                  airbnb,
+                  control = rpart.control(cp = 0.001))
+par(xpd = TRUE)
+plot(fit.tree, compress=TRUE)
+text(fit.tree, use.n=TRUE)
+rpart.plot(fit.tree)
+```
+
+
+
+
+##random forest
+```{r}
+amenity = colnames(amenities)
+
+formula = as.formula(log_price ~ -1 + tv+wifi+ac+heat+kitchen+pool+pet+parking+garden+wholedaycheckin + accommodates + bathrooms + cleaning_fee + host_has_profile_pic + host_identity_verified +instant_bookable + number_of_reviews + review_scores_rating +bedrooms + beds,airbnb_train)
+
+set.seed(6)
+mod_rf <- randomForest(formula,airbnb_train,ntree=500)
+
+varImpPlot(mod_rf)
+
+frpre_train = predict(mod_rf,airbnb_train)
+mse_rf_train = mean((frpre_train - airbnb_train$log_price)^2)
+mse_rf_train
+
+frpre_test = predict(mod_rf,airbnb_test)
+mse_rf_test = mean((frpre_test - airbnb_test$log_price)^2)
+mse_rf_test
+```
+
+##gbm
+```{r}
+f1 <- as.formula(log_price ~ -1 + tv+wifi+ac+heat+kitchen+pool+pet+parking+garden+wholedaycheckin + accommodates + bathrooms + cleaning_fee + host_has_profile_pic + host_identity_verified +instant_bookable + number_of_reviews + review_scores_rating +bedrooms + beds,airbnb_train)
+
+fit_btree <- gbm(f1,
+                 data = airbnb_train,
+                 distribution = "gaussian",
+                 n.trees = 600,
+                 interaction.depth = 2,
+                 shrinkage = 1)
+
+relative.influence(fit_btree)
+
+yhat_btree_train <- predict(fit_btree, airbnb_train, n.trees = 600)
+mse_btree_train <- mean((yhat_btree_train - airbnb_train$log_price) ^ 2)
+print(mse_btree_train)
+
+yhat_btree_test <- predict(fit_btree, airbnb_test, n.trees = 600)
+mse_btree_test <- mean((yhat_btree_test - airbnb_test$log_price) ^ 2)
+print(mse_btree_test)
+```
+
