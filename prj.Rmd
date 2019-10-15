@@ -15,6 +15,7 @@ library(magrittr)
 library(ggthemes)
 library(glmnet)
 library(rpart.plot)
+library(caret)
 theme_set(theme_bw())
 
 
@@ -57,11 +58,15 @@ airbnb_train %>% ggplot(aes(x = accommodates, y = beds)) +
 f1 <- as.formula(log_price ~ accommodates + bathrooms + cleaning_fee +
                   host_has_profile_pic + host_identity_verified +
                   instant_bookable + number_of_reviews + review_scores_rating +
-                  bedrooms + beds)
+                  bedrooms + beds + tv + wifi +
+                   ac + heat + kitchen + pool + pet + parking + 
+                   garden + wholedaycheckin)
 f2 <- as.formula(log_price ~ accommodates + bathrooms + cleaning_fee +
                   host_has_profile_pic + host_identity_verified +
                   instant_bookable + number_of_reviews + review_scores_rating +
-                  bedrooms + beds + beds * bedrooms + accommodates * beds)
+                  bedrooms + beds + tv + wifi +
+                   ac + heat + kitchen + pool + pet + parking + 
+                   garden + wholedaycheckin + beds * bedrooms + accommodates * beds)
 y.train <- airbnb_train$log_price
 y.test <- airbnb_test$log_price
 
@@ -85,7 +90,7 @@ Through applying simple linear regression with and without interaction terms on 
 
 ```{r}
 # forward & backward selection
-library(caret)
+
 step.modelB <- train(f1, data = airbnb_train,
                     method = "leapBackward",  
                     tuneGrid = data.frame(nvmax = 1:20)
@@ -98,7 +103,7 @@ step.modelF <- train(f1, data = airbnb_train,
 summary(step.modelB$finalModel)
 summary(step.modelF$finalModel)
 ```
-
+The train MSE from forward selection is 0.2555381, and from backward is 0.2548477.
 
 
 ##lasso
