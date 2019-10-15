@@ -145,8 +145,9 @@ coef(cv.fit)
 
 
 ##tree
+
 ```{r}
-f1 <- as.formula(log_price ~ accommodates + cleaning_fee + bedrooms + beds + bathrooms + review_scores_rating)
+f1 <- as.formula(log_price ~ tv+wifi+ac+heat+kitchen+pool+pet+parking+garden+wholedaycheckin + accommodates + cleaning_fee + host_has_profile_pic + host_identity_verified +instant_bookable + number_of_reviews +bedrooms)
 fit.tree <- rpart(f1,
                   airbnb,
                   control = rpart.control(cp = 0.001))
@@ -155,6 +156,7 @@ plot(fit.tree, compress=TRUE)
 text(fit.tree, use.n=TRUE)
 rpart.plot(fit.tree)
 ```
+
 
 
 
