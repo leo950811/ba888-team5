@@ -1,12 +1,13 @@
 ---
-title: "prj"
-author: "Sizhe Fan"
-date: "10/8/2019"
-output: html_document
+title: "BA810 team project"
+author: "Team5: Sizhe Fan, Weifu Shi, Xiaorui Shen, Yinghui Wei, Hang Zhang"
+date: "10/16/2019"
+output: pdf 
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
 library(dplyr)
 library(tidyverse)
 library(ggplot2)
@@ -16,6 +17,7 @@ library(ggthemes)
 library(glmnet)
 library(rpart.plot)
 library(caret)
+
 theme_set(theme_bw())
 
 
@@ -55,6 +57,7 @@ airbnb_train %>% ggplot(aes(x = bedrooms, y = beds)) + geom_point() +
  geom_smooth()
 airbnb_train %>% ggplot(aes(x = accommodates, y = beds)) +
  geom_point() + geom_smooth()
+
 f1 <- as.formula(log_price ~ accommodates + bathrooms + cleaning_fee +
                   host_has_profile_pic + host_identity_verified +
                   instant_bookable + number_of_reviews + review_scores_rating +
@@ -67,6 +70,7 @@ f2 <- as.formula(log_price ~ accommodates + bathrooms + cleaning_fee +
                   bedrooms + beds + tv + wifi +
                    ac + heat + kitchen + pool + pet + parking + 
                    garden + wholedaycheckin + beds * bedrooms + accommodates * beds)
+
 y.train <- airbnb_train$log_price
 y.test <- airbnb_test$log_price
 
@@ -104,10 +108,10 @@ step.modelF <- train(f2, data = airbnb_train,
 summary(step.modelB$finalModel)
 summary(step.modelF$finalModel)
 
-coef(step.modelB$finalModel, 16)
+coef(step.modelB$finalModel, 15)
 coef(step.modelF$finalModel, 16)
 ```
-The train MSE from forward selection is 0.2555381, and from backward is 0.2548477.
+The train MSE from forward selection is 0.2456915, and from backward is 0.2452643.
 
 Lasso
 ```{r}
