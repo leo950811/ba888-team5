@@ -1,0 +1,212 @@
+---
+title: "Untitled"
+author: "Sizhe Fan"
+date: "2/24/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(gbm)
+load.libraries <- c('plyr', 'dplyr','data.table', 'readxl', 'reshape2', 'stringr', 'stringi', 'ggplot2', 'tidyverse','gridExtra','matrixStats','lubridate','corrplot','e1071','xgboost','caret','zoo','factoextra','plotly','DT')
+install.lib <- load.libraries[!load.libraries %in% installed.packages()]
+for(libs in install.lib) install.packages(libs, dependences = TRUE)
+sapply(load.libraries, require, character = TRUE)
+
+credit = read.csv("application_train.csv")
+credit$DAYS_EMPLOYED <- replace(credit$DAYS_EMPLOYED,credit$DAYS_EMPLOYED == 365243,NA)
+
+credit_test = read.csv("application_test.csv")
+credit_test$DAYS_EMPLOYED <- replace(credit_test$DAYS_EMPLOYED,credit_test$DAYS_EMPLOYED == 365243,NA)
+```
+
+
+```{r}
+train0 <- credit %>% 
+  select(CNT_CHILDREN, AMT_INCOME_TOTAL, AMT_CREDIT, AMT_ANNUITY, DAYS_BIRTH, 
+         DAYS_EMPLOYED, DAYS_REGISTRATION, DAYS_ID_PUBLISH, FLAG_EMP_PHONE, 
+         FLAG_WORK_PHONE, FLAG_PHONE, FLAG_EMAIL, REGION_RATING_CLIENT,
+         HOUR_APPR_PROCESS_START, REG_REGION_NOT_LIVE_REGION, REG_REGION_NOT_WORK_REGION,
+         REG_CITY_NOT_LIVE_CITY, LIVE_CITY_NOT_WORK_CITY, EXT_SOURCE_2, EXT_SOURCE_3, 
+         FLOORSMAX_AVG, FLOORSMAX_MODE, FLOORSMAX_MEDI, TOTALAREA_MODE, 
+         OBS_30_CNT_SOCIAL_CIRCLE, DEF_30_CNT_SOCIAL_CIRCLE, OBS_60_CNT_SOCIAL_CIRCLE, 
+         DEF_60_CNT_SOCIAL_CIRCLE, DAYS_LAST_PHONE_CHANGE, FLAG_DOCUMENT_3, 
+         AMT_REQ_CREDIT_BUREAU_DAY, AMT_REQ_CREDIT_BUREAU_WEEK, AMT_REQ_CREDIT_BUREAU_MON,
+        AMT_REQ_CREDIT_BUREAU_QRT,AMT_REQ_CREDIT_BUREAU_YEAR)  
+train0[is.na(train0)] = 0
+BoxCoxValues <- apply(train0, 2, function(x) BoxCoxTrans(x, na.rm = TRUE))
+x = list()
+
+for (i in 1:ncol(train0)){
+     lambda <- BoxCoxValues[[i]][[1]]
+     x[[i]] <- lambda
+}
+
+lambda = do.call(rbind, x)
+lambda_df <- as.data.frame(cbind(colnames(train0),lambda))
+colnames(lambda_df)[1] <- "Column"
+colnames(lambda_df)[2] <- "lambda"
+knitr::kable(setDT(lambda_df)[!is.na(lambda)])
+
+preProcValues <- preProcess(train0, method = "BoxCox")
+preProcValues
+dt1_tran <- predict(preProcValues, train0)
+
+#Recreate numeric list with new dt1_tran
+numeric_list <- unlist(lapply(dt1_tran, is.numeric))
+train0 <- setDT(dt1_tran)[,..numeric_list]
+
+
+credit$OCCUPATION_TYPE[is.na(credit$OCCUPATION_TYPE)] = 'None'
+# train1 = credit %>% select(CODE_GENDER, 
+#                                 FLAG_OWN_CAR, FLAG_OWN_REALTY, 
+#                                 NAME_CONTRACT_TYPE, NAME_EDUCATION_TYPE, 
+#                                 NAME_FAMILY_STATUS, NAME_HOUSING_TYPE, 
+#                                 NAME_INCOME_TYPE, 
+#                                 OCCUPATION_TYPE, ORGANIZATION_TYPE, 
+#                                 WEEKDAY_APPR_PROCESS_START) %>% lapply(factor)
+# 
+# 
+credit$TOTAL_FLAG_DOCUMENT = credit %>% 
+select(FLAG_DOCUMENT_2:FLAG_DOCUMENT_21) %>% rowSums()
+target = credit %>% select(TARGET) 
+docs = credit %>% select(TOTAL_FLAG_DOCUMENT)
+train2 = cbind(train0, docs, target)
+# #################################final train data
+# train = cbind(train2, train1) 
+
+```
+
+```{r}
+# test0 <- credit_test %>% 
+#   select(CNT_CHILDREN, AMT_INCOME_TOTAL, AMT_CREDIT, AMT_ANNUITY, DAYS_BIRTH, 
+#          DAYS_EMPLOYED, DAYS_REGISTRATION, DAYS_ID_PUBLISH, FLAG_EMP_PHONE, 
+#          FLAG_WORK_PHONE, FLAG_PHONE, FLAG_EMAIL, REGION_RATING_CLIENT,
+#          HOUR_APPR_PROCESS_START, REG_REGION_NOT_LIVE_REGION, REG_REGION_NOT_WORK_REGION,
+#          REG_CITY_NOT_LIVE_CITY, LIVE_CITY_NOT_WORK_CITY, EXT_SOURCE_2, EXT_SOURCE_3, 
+#          FLOORSMAX_AVG, FLOORSMAX_MODE, FLOORSMAX_MEDI, TOTALAREA_MODE, 
+#          OBS_30_CNT_SOCIAL_CIRCLE, DEF_30_CNT_SOCIAL_CIRCLE, OBS_60_CNT_SOCIAL_CIRCLE, 
+#          DEF_60_CNT_SOCIAL_CIRCLE, DAYS_LAST_PHONE_CHANGE, FLAG_DOCUMENT_3, 
+#          AMT_REQ_CREDIT_BUREAU_DAY, AMT_REQ_CREDIT_BUREAU_WEEK, AMT_REQ_CREDIT_BUREAU_MON,
+#         AMT_REQ_CREDIT_BUREAU_QRT,AMT_REQ_CREDIT_BUREAU_YEAR)
+# test0[is.na(test0)] = 0
+# BoxCoxValues <- apply(test0, 2, function(x) BoxCoxTrans(x, na.rm = TRUE))
+# x = list()
+# 
+# for (i in 1:ncol(test0)){
+#      lambda1 <- BoxCoxValues[[i]][[1]]
+#      x[[i]] <- lambda1
+# }
+# 
+# lambda1 = do.call(rbind, x)
+# lambda_df1 <- as.data.frame(cbind(colnames(test0),lambda1))
+# colnames(lambda_df1)[1] <- "Column"
+# colnames(lambda_df1)[2] <- "lambda"
+# knitr::kable(setDT(lambda_df1)[!is.na(lambda1)])
+# 
+# preProcValues1 <- preProcess(test0, method = "BoxCox")
+# preProcValues1
+# dt1_tran1 <- predict(preProcValues1, test0)
+# 
+# #Recreate numeric list with new dt1_tran
+# numeric_list1 <- unlist(lapply(dt1_tran1, is.numeric))
+# test0 <- setDT(dt1_tran1)[,..numeric_list1]
+# 
+# credit_test$OCCUPATION_TYPE[is.na(credit_test$OCCUPATION_TYPE)] = 'None'
+# test1 = credit_test %>% select(CODE_GENDER, 
+#                                 FLAG_OWN_CAR, FLAG_OWN_REALTY, 
+#                                 NAME_CONTRACT_TYPE, NAME_EDUCATION_TYPE, 
+#                                 NAME_FAMILY_STATUS, NAME_HOUSING_TYPE, 
+#                                 NAME_INCOME_TYPE, 
+#                                 OCCUPATION_TYPE, ORGANIZATION_TYPE, 
+#                                 WEEKDAY_APPR_PROCESS_START) %>% lapply(factor)
+# 
+# credit_test$TOTAL_FLAG_DOCUMENT = credit_test %>% 
+#   select(FLAG_DOCUMENT_2:FLAG_DOCUMENT_21) %>% rowSums()
+# #target = credit_test %>% select(TARGET) 
+# docs = credit_test %>% select(TOTAL_FLAG_DOCUMENT)
+# test2 = cbind(test0, docs)
+# #################################final train data
+# test0 = cbind(test2, test1) 
+```
+
+
+
+```{r}
+T1 = filter(train2, TARGET==1)
+T0 = filter(train2,TARGET==0)
+
+T1$TARGET = as.factor(T1$TARGET)
+T0$TARGET = as.factor(T0$TARGET)
+tm2 = rbind(T1[2001:6000,1:37],T0[2001:10000,1:37])
+
+tm = rbind(T1[1:6000,1:37],T0[1:12000,1:37])
+
+```
+
+
+```{r}
+trctrl <- trainControl(method = "repeatedcv", number = 5, repeats = 2,classProbs =  F)
+tm$TARGET = factor(tm$TARGET)
+#colnames(tm) = make.names(colnames(tm))
+svmFit <- train(TARGET ~.,
+                data = tm,
+                method = 'svmRadial',
+                preProc = c('center','scale'),
+                tuneLength = 7,
+                trControl = trctrl)
+
+svmFit
+
+plot(svmFit, scales = list(x=list(log =2)))
+
+
+
+tm2$svmFitLinearclass <- predict(svmFit, tm2[,1:36])
+yardstick::accuracy_vec(tm2$TARGET,tm2$svmFitLinearclass)
+
+```
+```{r}
+colnames(tm) = make.names(colnames(tm),unique=T)
+trctrl <- trainControl(method = "repeatedcv", number = 5, repeats = 2,classProbs =  F)
+
+svmFitLinear <- train(TARGET ~.,
+                data = tm,
+                method = 'svmLinear',
+                preProc = c('center','scale'),
+                tuneLength = 7,
+                trControl = trctrl)
+
+svmFitLinear
+
+tm2$svmFitLinearclass1 <- predict(svmFit, tm2[,1:36])
+yardstick::accuracy_vec(tm2$TARGET,tm2$svmFitLinearclass1)
+```
+
+```{r}
+resamp <- resamples(list(SVM_Radial = svmFit, SVM_Linear = svmFitLinear,logistic = logisticReg))
+summary(resamp)
+```
+
+
+```{r LogisticRegression}
+logisticReg <- train(TARGET ~.,
+                     data = tm,
+                     method = 'glm',
+                     trControl = trctrl)
+
+
+tm2$logclass <- predict(logisticReg,tm2[,1:36])
+
+
+yardstick::accuracy_vec(tm2$TARGET,tm2$logclass)
+
+```
+
+
+
+
+
