@@ -1,0 +1,213 @@
+---
+title: "k-means"
+author: "Weifu Shi"
+date: "2020"
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## 1
+```{r}
+library(readr)
+library(tidyverse)
+library(factoextra)
+library(skimr)
+library(corrplot)
+library(dplyr)
+library(purrr)
+library(cluster)
+library(yardstick)
+
+data <- read_csv("finaldat.csv")
+
+df <- as.data.frame(data)  ## 55 variables 
+
+dff <- df[ , purrr::map_lgl(df, is.numeric)]  ### 42 variables. delete all categorical data.  
+
+summary(dff$DAYS_EMPLOYED)
+
+
+```
+
+```{r}
+head(dff,5)
+failure <- dff %>% filter(TARGET==1)
+nrow(failure)
+
+success <- dff %>% filter(TARGET==0)
+nrow(success)
+
+f_df_2000 <- failure[sample(nrow(failure), 2000), ]
+s_df_8000 <- success [sample(nrow(success), 8000), ]
+
+k_data <- rbind(f_df_2000,s_df_8000)
+nrow(k_data)
+
+
+``` 
+
+### cluster (with Target = 0 -8000, Target =1 ,2000)
+```{r}
+
+# Use the WSS method
+az=scale(k_data)
+sum(is.na(az))
+x=1:10
+
+
+k_wss = function(k) {
+  km = kmeans(az, k, nstart=25, iter=25)
+  kwss = km$tot.withinss
+  return(kwss)
+}
+
+wss_data=map_dbl(x,k_wss)
+plot(x,wss_data,type="b", main = "Cluster For Clients Optimization")
+
+## silo eval method  ---
+fviz_nbclust(az,kmeans,method="silhouette")
+#plot the cluster 
+fviz_cluster(kmeans(az,3,25,25),az)
+
+
+#Conclusion: 2k default & 8k non-default data. 
+
+```
+
+```{r}
+set.seed(888)
+k=kmeans(az,center=2,iter.max = 25,nstart = 25)
+fviz_cluster(k,az)
+
+k_data_2 <- k_data
+k_data_2$cluster <- k$cluster
+
+result <- k_data_2 %>% select(cluster,everything())
+head(result,30)
+result$TARGET <- as.integer(result$TARGET)
+result$c <- case_when(result$cluster==1~"1",
+                      result$cluster==2~"0")
+
+accuracy_vec(as.factor(result$TARGET),as.factor(result$c))
+
+
+library(forcats)
+a <- fct_count(as.factor(result$c),sort=T)
+b <- fct_count(as.factor(result$TARGET),sort=T)
+
+cbind(a,b)
+
+```
+
+# Cluster clients who have difficulty of repaying the loan.  9999 dificulty + 1 个没问题的.  
+```{r}
+set.seed(888)
+nrow(failure)
+f_df_9999 <- failure[sample(nrow(failure), 9999), ]
+s_df_1 <- success [sample(nrow(success), 1), ]
+
+omg_data <- rbind(f_df_9999,s_df_1)
+
+
+omg <- scale(omg_data)
+
+sum(is.na(omg))
+# Use the WSS method
+
+num_cluster=1:8
+
+omg_wss = function(k) {
+  km = kmeans(omg, k, nstart=25, iter=25)
+  kwss = km$tot.withinss
+  return(kwss)
+}
+
+
+omg_map=map_dbl(num_cluster,omg_wss)
+plot(num_cluster,omg_map,type="b", main = "Cluster For Clients Optimization") # 5would be better
+
+## silo eval method  ---
+fviz_nbclust(omg,kmeans,method="silhouette")  # 5 would be better
+#plot the cluster 
+
+fviz_cluster(kmeans(omg,5,25,25),omg)
+set.seed(888)
+k_result <- kmeans(omg,5,25,25)
+#五个是最好的. 
+
+#放回去原来的dataset 
+omg_data$cluster <- k_result$cluster
+fct_count(as.factor(k_result$cluster),sort=T)
+result888 <- omg_data %>% select(cluster,everything())
+
+
+k_result$centers
+
+cluster_1 <- result888 %>% filter(cluster==1)
+cluster_2 <- result888 %>% filter(cluster==2)
+cluster_3 <- result888 %>% filter(cluster==3)
+
+skimr::skim(cluster_1)
+
+```
+```{r}
+result888
+```
+
+```{r}
+result888 %>% group_by(cluster) %>% summarize(mean_income=mean(AMT_INCOME_TOTAL),
+                                              mean_credit=mean(AMT_CREDIT),
+                                              mean_annuity=mean(AMT_ANNUITY),
+                                              mean_day_employed=abs(mean(DAYS_EMPLOYED)),
+                                              mean_goods_price=mean(AMT_GOODS_PRICE),
+                                              age=abs(mean(DAYS_BIRTH)/365),
+                                              count=length(X1)) %>% arrange(desc(mean_income)) %>% select(cluster,count,age,everything())
+```
+
+
+
+
+
+
+```{r}
+# k_data    # 2000 dificulty -1  , 8000 no-difficulty- 0
+dd <- k_data
+set.seed(888)
+dd$train <- sample(c(0, 1), nrow(dd), replace = TRUE, prob = c(.3, .7))
+dd_train <- dd %>% filter(train == 1)
+dd_test <- dd %>% filter(train == 0)
+head(dd)
+```
+
+
+```{r}
+library(tidyverse)
+library(ggthemes)
+library(glmnet)
+#f1 <- lm(TARGET ~ ., data=dd)
+#summary(f1)
+
+f1 <- as.formula(TARGET ~ AMT_INCOME_TOTAL + AMT_CREDIT + AMT_ANNUITY + AMT_GOODS_PRICE + DAYS_BIRTH+DAYS_EMPLOYED+EXT_SOURCE_2+EXT_SOURCE_3+FLAG_DOCUMENT_3)
+
+```
+
+```{r}
+# the [, -1] means take all columns of the matrix except the first column, which is an intercept added by 
+x1_train <- model.matrix(f1, dd_train)[, -1]
+# and this is the response
+y_train <- dd_train$p_open
+x1_test <- model.matrix(f1, dd_test)[, -1]
+y_test <- dd_test$p_open
+```
+
+```{r}
+fit_ridge <- cv.glmnet(x1_train, y_train, alpha = 0, nfolds = 10)
+
+yhat_train_ridge <- predict(fit_ridge, x1_train, s = fit_ridge$lambda.min)
+mse_train_ridge <- mean((y_train - yhat_train_ridge)^2)
+```
+
+
+
