@@ -1,0 +1,12 @@
+library(readxl)
+document <- read_excel("document.xlsx")
+skimr::skim(document1)
+library(randomForest)
+library(tidyverse)
+require(caTools)
+document1 <- document[, colSums(is.na(document)) == 0]
+document1$TARGET = factor(document1$TARGET)
+sample = sample.split(document1$TARGET , SplitRatio = .1)
+train1 = subset(document1, sample == TRUE)
+rf <- randomForest(TARGET ~ ., data=train1, ntree=500,do.trace=F)     
+varImpPlot(rf)
